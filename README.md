@@ -1,4 +1,4 @@
-# CineScope Fresh
+# CineScope
 
 A fresh, stable Streamlit movie recommender project with a flat dark-purple UI, TMDb poster + overview support, and Streamlit Community Cloud deployment readiness.
 
