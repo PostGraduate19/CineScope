@@ -4,3 +4,18 @@ __pycache__/
 .streamlit/secrets.toml
 .ipynb_checkpoints/
 models/poster_cache.json
+
+# Python environment
+.venv/
+__pycache__/
+*.pyc
+
+# Local Streamlit secrets (Contains your private API Keys)
+.streamlit/secrets.toml
+
+# Persistent User Database
+data/user_interactions.db
+
+# Large Binary Model Artifacts (Too large for GitHub)
+models/*.pkl
+models/*.json
