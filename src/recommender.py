@@ -4,6 +4,7 @@ import json
 import os
 import pickle
 import pandas as pd
+from pathlib import Path
 import requests
 import re
 from rapidfuzz import fuzz
@@ -12,8 +13,8 @@ from sklearn.metrics.pairwise import linear_kernel
 
 load_dotenv()
 
-BASE = Path(__file__).resolve().parents[1]
-MODEL_DIR = BASE / 'models'
+BASE_DIR = Path(__file__).resolve().parents[1]
+MODEL_DIR = BASE_DIR / 'models'
 TMDB_API_KEY = os.getenv('TMDB_API_KEY', '')
 TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 TMDB_MOVIE_URL = 'https://api.themoviedb.org/3/movie/{tmdb_id}'
@@ -25,20 +26,20 @@ WEIGHT_PROFILE = 0.20      # Match with user's historical clicks/likes
 WEIGHT_SVD = 0.25          # Matrix Factorization predictive quality
 WEIGHT_POPULARITY = 0.15   # Global baseline popularity
 
-with open(MODEL_DIR / 'movies.pkl', 'rb') as f:
+with open(BASE_DIR / 'models' / 'movies.pkl', 'rb') as f:
     movies = pickle.load(f)
 
-with open(MODEL_DIR / 'genre_matrix.pkl', 'rb') as f:
+with open(BASE_DIR / 'models' / 'genre_matrix.pkl', 'rb') as f:
     genre_matrix = pickle.load(f)
 
-with open(MODEL_DIR / 'title_to_index.json', 'r', encoding='utf-8') as f:
+with open(BASE_DIR / 'models' / 'title_to_index.json', 'r', encoding='utf-8') as f:
     title_to_index = json.load(f)
 
 # Load the newly trained Collaborative Filtering Model
-with open(MODEL_DIR / 'svd_model.pkl', 'rb') as f:
+with open(BASE_DIR / 'models' / 'svd_model.pkl', 'rb') as f:
     svd_model = pickle.load(f)
 
-DB_PATH = BASE / 'data' / 'user_interactions.db'
+DB_PATH = BASE_DIR / 'data' / 'user_interactions.db'
 
 
 def _load_cache():
