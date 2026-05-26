@@ -1,11 +1,11 @@
 streamlit>=1.35.0
 pandas>=2.0.0
 numpy>=1.26.0,<2.0.0
-scikit-learn>=1.0.0
-scipy>=1.10.0
-requests>=2.28.0
-python-dotenv>=0.19.0
-rapidfuzz>=2.0.0
+scikit-learn
+scipy
+requests
+python-dotenv
+rapidfuzz
 scikit-surprise>=1.1.4
 setuptools
 Cython
