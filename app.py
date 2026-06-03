@@ -199,6 +199,8 @@ with search_col:
 
 with action_col:
     if st.button("Search", type="primary", width='stretch') and selected:
+        # Clear out the dialog movie memory to prevent ghosts during new searches
+        st.session_state.dialog_movie = None 
         st.session_state.active_search = selected
         row = fetch_movie_row(selected)
         if row: update_history(row)
@@ -218,6 +220,7 @@ mood_cols = st.columns(len(moods))
 for idx, (mood_label, anchors) in enumerate(moods.items()):
     with mood_cols[idx]:
         if st.button(mood_label, width='stretch'):
+            st.session_state.dialog_movie = None
             random_anchor = random.choice(anchors)
             st.session_state.active_search = random_anchor
             row = fetch_movie_row(random_anchor)
@@ -256,11 +259,13 @@ if hero_movie:
             btn_col1, btn_col2 = st.columns(2)
             if btn_col1.button("▶ Watch Trailer", key="hero_watch", width='stretch', type="primary"):
                 st.session_state.dialog_movie = hero_movie
-                st.rerun()
+                # Native call instead of rerun
+                show_movie_dialog()
             if btn_col2.button("Details", key="hero_detail", width='stretch'):
                 st.session_state.dialog_movie = hero_movie
                 update_history(hero_movie)
-                st.rerun()
+                # Native call instead of rerun
+                show_movie_dialog()
 
 # --- REUSABLE CARD RENDERER ---
 def render_movie_card(row, prefix, index):
@@ -283,7 +288,8 @@ def render_movie_card(row, prefix, index):
         if st.button("Details", key=unique_button_key, width="stretch"):
             st.session_state.dialog_movie = row.to_dict() if isinstance(row, pd.Series) else row
             update_history(st.session_state.dialog_movie)
-            st.rerun()
+            # Native call instead of rerun
+            show_movie_dialog()
 
 # Render Recommendations Grid
 if active_target:
@@ -313,6 +319,5 @@ else:
             with cols[i % 4]:
                 render_movie_card(row, "pop", i)
 
-# Execute Dialog State
-if st.session_state.dialog_movie:
-    show_movie_dialog()
+# NOTE: The block that used to manually force 'show_movie_dialog()' to execute 
+# at the end of the script has been completely deleted.
