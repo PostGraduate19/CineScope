@@ -32,12 +32,12 @@ with open(BASE_DIR / 'models' / 'movies.pkl', 'rb') as f:
 with open(BASE_DIR / 'models' / 'genre_matrix.pkl', 'rb') as f:
     genre_matrix = pickle.load(f)
 
-with open(BASE_DIR / 'models' / 'title_to_index.json', 'r', encoding='utf-8') as f:
-    title_to_index = json.load(f)
-
-# Load the newly trained Collaborative Filtering Model
+# Load the Collaborative Filtering Model
 with open(BASE_DIR / 'models' / 'svd_model.pkl', 'rb') as f:
     svd_model = pickle.load(f)
+
+# Dynamically map cleaned titles to their DataFrame indices
+title_to_index = pd.Series(movies.index, index=movies['title'].str.lower().str.strip()).to_dict()
 
 DB_PATH = BASE_DIR / 'data' / 'user_interactions.db'
 
@@ -159,11 +159,14 @@ def get_movie_row(title, streamlit_secrets=None):
 
 
 def recommend_by_title(title, session_id=None, top_n=12, streamlit_secrets=None):
-    idx = title_to_index.get(title.lower())
+    clean_title = title.lower().strip()
+    idx = title_to_index.get(clean_title)
+    
     if idx is None:
         matches = search_titles(title, limit=1)
         if not matches: return pd.DataFrame()
-        idx = title_to_index[matches[0].lower()]
+        # Force the RapidFuzz match to strip invisible whitespaces before dictionary lookup
+        idx = title_to_index[matches[0].lower().strip()]
 
     scored = movies.copy()
 

@@ -8,6 +8,7 @@ if project_root not in sys.path:
 
 # NOW you can safely import your project modules
 import streamlit as st
+import urllib.parse
 import pandas as pd
 import random
 import requests
@@ -257,14 +258,17 @@ if hero_movie:
 
             st.write("")
             btn_col1, btn_col2 = st.columns(2)
-            if btn_col1.button("▶ Watch Trailer", key="hero_watch", width='stretch', type="primary"):
-                st.session_state.dialog_movie = hero_movie
-                # Native call instead of rerun
-                show_movie_dialog()
-            if btn_col2.button("Details", key="hero_detail", width='stretch'):
+            
+            # Direct YouTube Search Link
+            safe_query = urllib.parse.quote_plus(f"{hero_movie['title']} official trailer")
+            trailer_url = f"https://www.youtube.com/results?search_query={safe_query}"
+            
+            # Native Streamlit link_button routes externally without a state rerun
+            btn_col1.link_button("▶ Watch Trailer", trailer_url, use_container_width=True)
+            
+            if btn_col2.button("Details", key="hero_detail", use_container_width=True):
                 st.session_state.dialog_movie = hero_movie
                 update_history(hero_movie)
-                # Native call instead of rerun
                 show_movie_dialog()
 
 # --- REUSABLE CARD RENDERER ---
@@ -283,12 +287,15 @@ def render_movie_card(row, prefix, index):
         if pd.isna(movie_id) or movie_id is None:
             movie_id = abs(hash(str(row['title'])))
             
-        unique_button_key = f"btn_{prefix}_{index}_{int(movie_id)}"
+        # Add the direct trailer link to all grid cards
+        safe_query = urllib.parse.quote_plus(f"{row['title']} official trailer")
+        trailer_url = f"https://www.youtube.com/results?search_query={safe_query}"
+        st.link_button("▶ Trailer", trailer_url, use_container_width=True)
         
-        if st.button("Details", key=unique_button_key, width="stretch"):
+        unique_button_key = f"btn_{prefix}_{index}_{int(movie_id)}"
+        if st.button("Details", key=unique_button_key, use_container_width=True):
             st.session_state.dialog_movie = row.to_dict() if isinstance(row, pd.Series) else row
             update_history(st.session_state.dialog_movie)
-            # Native call instead of rerun
             show_movie_dialog()
 
 # Render Recommendations Grid

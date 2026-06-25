@@ -77,8 +77,6 @@ def build_artifacts():
     with open(MODEL_DIR / 'genre_matrix.pkl', 'wb') as f:
         pickle.dump(genre_matrix, f)
 
-    with open(MODEL_DIR / 'title_to_index.json', 'w', encoding='utf-8') as f:
-        json.dump({title.lower(): idx for idx, title in enumerate(movies['title'].tolist())}, f)
 
     cache_file = MODEL_DIR / 'poster_cache.json'
     if not cache_file.exists():
