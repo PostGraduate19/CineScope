@@ -24,6 +24,7 @@ cinescope-fresh/
 ├── app.py                          # Streamlit web-serving user interface application
 ├── README.md                       # System documentation and deployment runbook
 ├── requirements.txt                # Unified production dependency manifest
+├──  cinescope_pipeline.ipynb       # Unified interactive training and tuning suite
 │
 ├── .venv/                          # Isolated project virtual environment
 │
@@ -37,8 +38,6 @@ cinescope-fresh/
 │   ├── genre_matrix.pkl            # Compressed Sparse Row TF-IDF matrix
 │   └── svd_model.pkl               # Trained SVD model weights and biases
 │
-├── notebook/
-│   └── CineScope_Training_Pipeline.ipynb  # Unified interactive training and tuning suite
 │
 └── src/                            # Core modular production source engine
     ├── __init__.py                 # Treats the src directory as an importable module

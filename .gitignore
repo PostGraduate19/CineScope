@@ -4,6 +4,7 @@ __pycache__/
 .streamlit/secrets.toml
 .ipynb_checkpoints/
 models/poster_cache.json
+system_png
 
 # Python environment
 .venv/
