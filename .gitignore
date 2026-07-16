@@ -6,3 +6,4 @@ database.sqlite
 root_start.log
 *.png
 *.zip
+*.patch
