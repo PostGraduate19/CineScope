@@ -1,0 +1,35 @@
+
+> app@1.0.0 start
+> concurrently "npm run start:backend" "npm run start:frontend"
+
+[0] 
+[0] > app@1.0.0 start:backend
+[0] > cd backend && npm run dev
+[0] 
+[1] 
+[1] > app@1.0.0 start:frontend
+[1] > cd frontend && npm run dev
+[1] 
+[1] 
+[1] > frontend@0.0.0 dev
+[1] > vite
+[1] 
+[0] 
+[0] > backend@1.0.0 dev
+[0] > nodemon src/index.js
+[0] 
+[0] [33m[nodemon] 3.1.14[39m
+[0] [33m[nodemon] to restart at any time, enter `rs`[39m
+[0] [33m[nodemon] watching path(s): *.*[39m
+[0] [33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[0] [32m[nodemon] starting `node src/index.js`[39m
+[1] 
+[1]   VITE v8.1.5  ready in 269 ms
+[1] 
+[1]   ➜  Local:   http://localhost:5173/
+[1]   ➜  Network: use --host to expose
+[0] Server is running on port 3001
+[0] Database connected
+[0] User connected: Guest_3624 (xyBiN-dBwhIXG64QAAAC)
+[0] Guest_3624 joined room: 613yzsh
+[0] User disconnected: Guest_3624 (xyBiN-dBwhIXG64QAAAC)
