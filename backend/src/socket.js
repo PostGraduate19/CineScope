@@ -21,8 +21,9 @@ function setupSocket(server) {
                 next();
             });
         } else {
-            // Allow guest access
-            socket.user = { username: `Guest_${Math.floor(Math.random() * 10000)}` };
+            // Allow guest access with the username provided by the frontend if any, otherwise random guest
+            const guestName = socket.handshake.auth.username || `Guest_${Math.floor(Math.random() * 10000)}`;
+            socket.user = { username: guestName };
             next();
         }
     });
@@ -38,6 +39,8 @@ function setupSocket(server) {
             if (!rooms.has(roomId)) {
                 rooms.set(roomId, {
                     users: [],
+                    host: socket.id,
+                    bufferingUsers: new Set(),
                     videoState: {
                         playing: false,
                         time: 0,
@@ -50,11 +53,64 @@ function setupSocket(server) {
             room.users.push({ id: socket.id, username: socket.user.username });
             
             // Notify others in the room
-            socket.to(roomId).emit('user-joined', socket.user.username);
+            socket.to(roomId).emit('user-joined', { id: socket.id, username: socket.user.username });
             
             // Send current state to the new user
             socket.emit('room-state', room.videoState);
-            io.to(roomId).emit('users-update', room.users);
+            io.to(roomId).emit('users-update', { users: room.users, host: room.host });
+        });
+
+        // Chat
+        socket.on('chat-message', ({ roomId, message }) => {
+            io.to(roomId).emit('chat-message', {
+                id: Math.random().toString(36).substr(2, 9),
+                userId: socket.id,
+                username: socket.user.username,
+                text: message,
+                timestamp: Date.now()
+            });
+        });
+
+        // WebRTC Signaling
+        socket.on('signal', ({ peerId, signal }) => {
+            io.to(peerId).emit('signal', {
+                peerId: socket.id,
+                signal
+            });
+        });
+
+        // Buffering State (Latency Auto-Pause)
+        socket.on('buffering', ({ roomId, isBuffering }) => {
+            const room = rooms.get(roomId);
+            if (!room) return;
+
+            if (isBuffering) {
+                room.bufferingUsers.add(socket.id);
+                if (room.bufferingUsers.size === 1) { // First user to buffer
+                    // Do not change room.videoState.playing here, just tell clients to pause temporarily
+                    io.to(roomId).emit('force-pause', { reason: 'buffering', username: socket.user.username });
+                }
+            } else {
+                room.bufferingUsers.delete(socket.id);
+                if (room.bufferingUsers.size === 0 && room.videoState.playing) { // Everyone is ready
+                    io.to(roomId).emit('resume-play');
+                }
+            }
+        });
+
+        // Host Controls
+        socket.on('kick-user', ({ roomId, userId }) => {
+            const room = rooms.get(roomId);
+            if (room && room.host === socket.id) {
+                io.to(userId).emit('kicked');
+            }
+        });
+
+        socket.on('mute-user', ({ roomId, userId, type }) => {
+            const room = rooms.get(roomId);
+            if (room && room.host === socket.id) {
+                io.to(userId).emit('muted', { type }); // type: 'audio' | 'video'
+            }
         });
 
         socket.on('play', (data) => {
@@ -68,10 +124,12 @@ function setupSocket(server) {
         });
 
         socket.on('pause', (data) => {
-            const { roomId, time } = data;
+            const { roomId, time, isForcePause } = data;
             const room = rooms.get(roomId);
             if (room) {
-                room.videoState.playing = false;
+                if (!isForcePause) {
+                    room.videoState.playing = false;
+                }
                 room.videoState.time = time;
                 socket.to(roomId).emit('pause', time);
             }
@@ -102,11 +160,23 @@ function setupSocket(server) {
                  const room = rooms.get(roomId);
                  if (room) {
                      room.users = room.users.filter(u => u.id !== socket.id);
-                     socket.to(roomId).emit('user-left', socket.user.username);
-                     io.to(roomId).emit('users-update', room.users);
+                     room.bufferingUsers?.delete(socket.id);
+
+                     socket.to(roomId).emit('user-left', socket.id);
                      
                      if (room.users.length === 0) {
                          rooms.delete(roomId);
+                     } else {
+                         // Reassign host if host left
+                         if (room.host === socket.id) {
+                             room.host = room.users[0].id;
+                         }
+                         io.to(roomId).emit('users-update', { users: room.users, host: room.host });
+
+                         // If we were waiting on this user to buffer, check if we can resume
+                         if (room.bufferingUsers.size === 0 && room.videoState.playing) {
+                             io.to(roomId).emit('resume-play');
+                         }
                      }
                  }
              });

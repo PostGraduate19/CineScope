@@ -10,17 +10,26 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "buffer": "^6.0.3",
+    "clsx": "^2.1.1",
+    "dash.js": "^4.0.0",
+    "events": "^3.3.0",
+    "hls.js": "^1.6.16",
     "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-player": "^3.4.0",
     "react-router-dom": "^7.18.1",
-    "socket.io-client": "^4.8.3"
+    "simple-peer": "^9.11.1",
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "^3.6.0",
+    "vite-plugin-node-polyfills": "^0.28.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/simple-peer": "^9.11.9",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.4.19",
     "oxlint": "^1.71.0",

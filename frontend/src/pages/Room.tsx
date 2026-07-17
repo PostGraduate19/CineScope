@@ -4,7 +4,10 @@ import { io, Socket } from 'socket.io-client';
 // @ts-ignore
 import ReactPlayer from 'react-player';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, Link, FileVideo, Copy, ArrowLeft } from 'lucide-react';
+import { Link, FileVideo, Copy, ArrowLeft, Sun, Moon } from 'lucide-react';
+import { Sidebar } from '../components/Sidebar';
+import { CustomPlayer } from '../components/CustomPlayer';
+import { useTheme } from '../contexts/ThemeContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -17,17 +20,20 @@ export function Room() {
     const { id } = useParams<{ id: string }>();
     const { token, username } = useAuth();
     const navigate = useNavigate();
+    const { theme, toggleTheme } = useTheme();
     
     const [socket, setSocket] = useState<Socket | null>(null);
     const [users, setUsers] = useState<User[]>([]);
+    const [hostId, setHostId] = useState<string>('');
     const [urlInput, setUrlInput] = useState('');
     const [currentUrl, setCurrentUrl] = useState<string | null>(null);
     const [localFileUrl, setLocalFileUrl] = useState<string | null>(null);
-    
-    const playerRef = useRef<any>(null);
-    const nativePlayerRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [serverTime, setServerTime] = useState(0);
+    const [forceTimeSync, setForceTimeSync] = useState(false);
+
     const isSeekingRef = useRef(false);
+    const playerTimeRef = useRef(0);
 
     useEffect(() => {
         if (!username) {
@@ -36,7 +42,7 @@ export function Room() {
         }
 
         const newSocket = io(API_URL, {
-            auth: { token }
+            auth: { token, username } // pass username for guest access
         });
 
         setSocket(newSocket);
@@ -54,46 +60,66 @@ export function Room() {
             
             // Wait for player to be ready before seeking for late joiners
             setTimeout(() => {
-                if (playerRef.current && state.url) {
-                    playerRef.current.seekTo(state.time, 'seconds');
-                } else if (nativePlayerRef.current) {
-                    nativePlayerRef.current.currentTime = state.time;
-                    if (state.playing) {
-                        nativePlayerRef.current.play().catch(console.error);
-                    }
-                }
+                setServerTime(state.time);
+                setForceTimeSync(true);
+                setTimeout(() => setForceTimeSync(false), 500);
             }, 500);
         });
 
-        newSocket.on('users-update', (updatedUsers) => {
-            setUsers(updatedUsers);
+        newSocket.on('users-update', (data: { users: User[], host: string } | User[]) => {
+            if (Array.isArray(data)) {
+                // Should not happen if backend is updated correctly, but just in case
+                setUsers(data);
+            } else {
+                setUsers(data.users);
+                setHostId(data.host);
+            }
         });
 
         newSocket.on('play', (time) => {
             isSeekingRef.current = true;
-            if (playerRef.current && currentUrl) playerRef.current.seekTo(time, 'seconds');
-            if (nativePlayerRef.current) {
-                nativePlayerRef.current.currentTime = time;
-                nativePlayerRef.current.play().catch(console.error);
-            }
+            setServerTime(time);
+            setForceTimeSync(true);
             setIsPlaying(true);
-            setTimeout(() => { isSeekingRef.current = false; }, 500);
+            setTimeout(() => {
+                isSeekingRef.current = false;
+                setForceTimeSync(false);
+            }, 500);
         });
 
         newSocket.on('pause', (time) => {
+            isSeekingRef.current = true;
+            setServerTime(time);
+            setForceTimeSync(true);
             setIsPlaying(false);
-            if (playerRef.current && currentUrl) playerRef.current.seekTo(time, 'seconds');
-            if (nativePlayerRef.current) {
-                nativePlayerRef.current.currentTime = time;
-                nativePlayerRef.current.pause();
-            }
+            setTimeout(() => {
+                isSeekingRef.current = false;
+                setForceTimeSync(false);
+            }, 500);
         });
 
         newSocket.on('seek', (time) => {
             isSeekingRef.current = true;
-            if (playerRef.current && currentUrl) playerRef.current.seekTo(time, 'seconds');
-            if (nativePlayerRef.current) nativePlayerRef.current.currentTime = time;
+            setServerTime(time);
+            setForceTimeSync(true);
+            setTimeout(() => {
+                isSeekingRef.current = false;
+                setForceTimeSync(false);
+            }, 500);
+        });
+
+        newSocket.on('force-pause', ({ reason: _reason, username: _username }) => {
+            isSeekingRef.current = true;
+            setIsPlaying(false);
             setTimeout(() => { isSeekingRef.current = false; }, 500);
+            // Force pause locally without overwriting server state
+            if (playerTimeRef.current > 0) {
+                 newSocket.emit('pause', { roomId: id, time: playerTimeRef.current, isForcePause: true });
+            }
+        });
+
+        newSocket.on('resume-play', () => {
+            setIsPlaying(true);
         });
 
         newSocket.on('set-url', (url) => {
@@ -128,36 +154,26 @@ export function Room() {
         }
     };
 
-    const getCurrentTime = () => {
-        if (currentUrl && playerRef.current) return playerRef.current.getCurrentTime();
-        if (nativePlayerRef.current) return nativePlayerRef.current.currentTime;
-        return 0;
-    };
-
     const handlePlay = () => {
         if (!isSeekingRef.current && socket) {
-            socket.emit('play', { roomId: id, time: getCurrentTime() });
+            socket.emit('play', { roomId: id, time: playerTimeRef.current });
             setIsPlaying(true);
         }
     };
 
     const handlePause = () => {
         if (!isSeekingRef.current && socket) {
-            socket.emit('pause', { roomId: id, time: getCurrentTime() });
+            socket.emit('pause', { roomId: id, time: playerTimeRef.current });
             setIsPlaying(false);
         }
     };
 
-    const handleSeek = (e: any) => {
-        // For ReactPlayer onSeek
-        if (!isSeekingRef.current && socket) {
-            socket.emit('seek', { roomId: id, time: e });
-        }
-    };
+    // Need to hook this to CustomPlayer onTimeUpdate if we want precise play/pause state
 
-    const handleNativeSeek = () => {
-        if (!isSeekingRef.current && socket && nativePlayerRef.current) {
-            socket.emit('seek', { roomId: id, time: nativePlayerRef.current.currentTime });
+    const handleSeek = (time: number) => {
+        playerTimeRef.current = time;
+        if (!isSeekingRef.current && socket) {
+            socket.emit('seek', { roomId: id, time });
         }
     };
 
@@ -167,104 +183,84 @@ export function Room() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+        <div className="min-h-screen flex flex-col transition-colors duration-300">
             {/* Header */}
-            <header className="bg-gray-800 p-4 flex items-center justify-between shadow-md">
+            <header className="bg-surface-light dark:bg-surface-dark p-4 flex items-center justify-between shadow-soft dark:shadow-soft-dark z-10">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/')} className="text-gray-400 hover:text-white">
+                    <button onClick={() => navigate('/')} className="text-gray-600 dark:text-gray-400 hover:text-primary-light dark:hover:text-primary-dark transition-colors">
                         <ArrowLeft className="w-6 h-6" />
                     </button>
-                    <h1 className="text-xl font-bold">Room: {id}</h1>
-                    <button onClick={copyRoomLink} className="p-2 hover:bg-gray-700 rounded-lg flex items-center gap-2 text-sm text-gray-300">
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Room: {id}</h1>
+                    <button onClick={copyRoomLink} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 transition-colors shadow-neumorph-light dark:shadow-neumorph-dark active:shadow-neumorph-light-inset dark:active:shadow-neumorph-dark-inset">
                         <Copy className="w-4 h-4" /> Copy Link
                     </button>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Users className="w-5 h-5 text-gray-400" />
-                    <span className="font-medium">{users.length} watching</span>
+                <div className="flex items-center gap-4">
+                    <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors shadow-neumorph-light dark:shadow-neumorph-dark active:shadow-neumorph-light-inset dark:active:shadow-neumorph-dark-inset">
+                        {theme === 'dark' ? <Sun className="w-5 h-5 text-gray-100" /> : <Moon className="w-5 h-5 text-gray-900" />}
+                    </button>
                 </div>
             </header>
 
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                 {/* Main Content (Player) */}
-                <div className="flex-1 p-4 lg:p-6 flex flex-col items-center justify-center overflow-y-auto">
+                <div className="flex-1 p-4 lg:p-6 flex flex-col items-center justify-center overflow-y-auto bg-background-light dark:bg-background-dark">
                     
                     {!currentUrl && !localFileUrl ? (
-                        <div className="max-w-2xl w-full bg-gray-800 rounded-2xl p-8 text-center space-y-8">
+                        <div className="max-w-2xl w-full bg-surface-light dark:bg-surface-dark rounded-3xl p-10 text-center space-y-8 shadow-neumorph-light dark:shadow-neumorph-dark">
                             <div>
-                                <h2 className="text-2xl font-bold mb-4">Watch an Online Video</h2>
-                                <form onSubmit={handleUrlSubmit} className="flex gap-2">
+                                <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Watch an Online Video</h2>
+                                <form onSubmit={handleUrlSubmit} className="flex gap-4">
                                     <div className="relative flex-1">
-                                        <Link className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                        <Link className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 w-5 h-5" />
                                         <input
                                             type="url"
                                             placeholder="Paste YouTube, Vimeo, or .mp4 URL"
                                             value={urlInput}
                                             onChange={(e) => setUrlInput(e.target.value)}
-                                            className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                                            className="w-full pl-12 pr-4 py-4 bg-transparent border-none rounded-2xl text-gray-900 dark:text-gray-100 focus:outline-none shadow-neumorph-light-inset dark:shadow-neumorph-dark-inset placeholder-gray-500 dark:placeholder-gray-500"
                                         />
                                     </div>
-                                    <button type="submit" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold">
+                                    <button type="submit" className="px-8 py-4 bg-primary-light dark:bg-primary-dark text-white rounded-2xl font-semibold shadow-neumorph-light dark:shadow-neumorph-dark active:shadow-neumorph-light-inset dark:active:shadow-neumorph-dark-inset transition-all">
                                         Load
                                     </button>
                                 </form>
                             </div>
 
                             <div className="relative">
-                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-700"></div></div>
-                                <div className="relative flex justify-center"><span className="bg-gray-800 px-4 text-gray-400">OR</span></div>
+                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-300 dark:border-gray-700"></div></div>
+                                <div className="relative flex justify-center"><span className="bg-surface-light dark:bg-surface-dark px-4 text-gray-500 dark:text-gray-400 font-medium">OR</span></div>
                             </div>
 
                             <div>
-                                <h2 className="text-2xl font-bold mb-4">Watch a Local File</h2>
-                                <p className="text-sm text-gray-400 mb-4">Everyone in the room needs to select the exact same file from their device to watch in sync.</p>
-                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer hover:bg-gray-700 transition-colors">
+                                <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Watch a Local File</h2>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Everyone in the room needs to select the exact same file from their device to watch in sync.</p>
+                                <label className="flex flex-col items-center justify-center w-full h-40 rounded-3xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900/50 transition-colors shadow-neumorph-light-inset dark:shadow-neumorph-dark-inset border-2 border-transparent hover:border-primary-light/30 dark:hover:border-primary-dark/30">
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                        <FileVideo className="w-10 h-10 text-gray-400 mb-2" />
-                                        <p className="text-sm text-gray-400"><span className="font-semibold">Click to select a video file</span></p>
+                                        <FileVideo className="w-12 h-12 text-primary-light dark:text-primary-dark mb-3" />
+                                        <p className="text-base text-gray-700 dark:text-gray-300 font-medium">Click to select a video file</p>
                                     </div>
                                     <input type="file" accept="video/*" className="hidden" onChange={handleFileSelect} />
                                 </label>
                             </div>
                         </div>
                     ) : (
-                        <div className="w-full max-w-6xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl relative">
-                            {currentUrl ? (
-                                (() => {
-                                    const Player = ReactPlayer as any;
-                                    return (
-                                        <Player
-                                            ref={playerRef}
-                                            url={currentUrl}
-                                            width="100%"
-                                            height="100%"
-                                            playing={isPlaying}
-                                            controls={true}
-                                            onPlay={handlePlay}
-                                            onPause={handlePause}
-                                            onProgress={(progress: any) => {
-                                                // onSeek is deprecated in recent react-player versions for some providers
-                                                // This is a safety check if we need progress
-                                            }}
-                                            config={{
-                                                youtube: { playerVars: { disablekb: 1 } }
-                                            }}
-                                        />
-                                    );
-                                })()
-                            ) : localFileUrl ? (
-                                <video
-                                    ref={nativePlayerRef}
-                                    src={localFileUrl}
-                                    className="w-full h-full"
-                                    controls
-                                    onPlay={handlePlay}
-                                    onPause={handlePause}
-                                    onSeeked={handleNativeSeek}
-                                />
-                            ) : null}
-                            <div className="absolute top-4 right-4 flex gap-2">
-                                <button onClick={() => { setCurrentUrl(null); setLocalFileUrl(null); }} className="px-4 py-2 bg-gray-900/80 hover:bg-gray-800 backdrop-blur rounded-lg text-sm font-medium">
+                        <div className="w-full max-w-6xl relative">
+                            <CustomPlayer
+                                url={currentUrl}
+                                localFileUrl={localFileUrl}
+                                isPlaying={isPlaying}
+                                onPlay={handlePlay}
+                                onPause={handlePause}
+                                onSeek={handleSeek}
+                                onWaiting={() => socket?.emit('buffering', { roomId: id, isBuffering: true })}
+                                onCanPlay={() => socket?.emit('buffering', { roomId: id, isBuffering: false })}
+                                onTimeUpdate={(t: number) => playerTimeRef.current = t}
+                                time={serverTime}
+                                forceTimeSync={forceTimeSync}
+                            />
+                            <div className="absolute top-4 right-4 flex gap-2 z-20">
+                                <button onClick={() => { setCurrentUrl(null); setLocalFileUrl(null); }} className="px-4 py-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-xl text-sm font-medium text-white transition-colors border border-white/10">
                                     Change Video
                                 </button>
                             </div>
@@ -272,24 +268,8 @@ export function Room() {
                     )}
                 </div>
 
-                {/* Sidebar (Users) */}
-                <div className="w-full lg:w-80 bg-gray-800 border-t lg:border-t-0 lg:border-l border-gray-700 flex flex-col">
-                    <div className="p-4 border-b border-gray-700">
-                        <h3 className="font-semibold text-lg">People in Room ({users.length})</h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                        {users.map(u => (
-                            <div key={u.id} className="flex items-center gap-3 bg-gray-700/50 p-3 rounded-lg">
-                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold">
-                                    {u.username.charAt(0).toUpperCase()}
-                                </div>
-                                <span className="font-medium">
-                                    {u.username} {u.username === username ? '(You)' : ''}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                {/* Sidebar (Chat & Participants) */}
+                <Sidebar socket={socket} roomId={id || ''} users={users} hostId={hostId} />
             </div>
         </div>
     );
