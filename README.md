@@ -1,10 +1,3 @@
-# 🎬 CineScope: Hybrid Personalized Recommender Engine
-
-Here is the fully compiled, synchronized `README.md` for your project root. This version integrates the complete file mapping, environment setup fixes, hyperparameter details, ranking metrics, and execution steps while maintaining the concise, professional tone of your original blueprint.
-
----
-
-```markdown
 # 🎬 CineScope: Hybrid Movie Recommendation Engine
 
 CineScope is an advanced Hybrid Movie Recommendation Engine designed to address data data sparsity and the cold-start problem in entertainment platforms. The system blends a **Content-Based Filtering Layer** (utilizing TF-IDF Genre Vectorization) with an optimized **Collaborative Filtering Layer** (utilizing Singular Value Decomposition Matrix Factorization). 
@@ -91,7 +84,7 @@ Your production source scripts are decoupled into specialized operational module
 
 ## ⚙️ The Unified Optimization Pipeline (`.ipynb`)
 
-For exploratory development, all modular scripts are consolidated inside `notebook/CineScope_Training_Pipeline.ipynb`. Open this file in VS Code, connect it to your `.venv` kernel, and execute to see key performance boundaries:
+For exploratory development, all modular scripts are consolidated inside `cinescope_pipeline.ipynb`. Open this file in VS Code, connect it to your `.venv` kernel, and execute to see key performance boundaries:
 
 ### 1. Empirical Error Baseline Results
 
