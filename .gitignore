@@ -1,0 +1,14 @@
+# Virtual environment & cache
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local secrets & runtime DB
+.env
+.streamlit/secrets.toml
+data/user_interactions.db
+
+# Optional: keep ignored ONLY if using Git LFS or on-the-fly build fallback
+# models/*.pkl
+models/poster_cache.json
