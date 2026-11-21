@@ -4,6 +4,16 @@ Welcome to **CineScope**! Imagine having a super-smart friend who has watched th
 
 ---
 
+## 🌐 Play With CineScope Live Right Now!
+
+You don't even need to install anything if you just want to test it out—**CineScope is live on Streamlit**! Click the link below, type a movie name or hit a **Mood Suggestor** button, and see what it picks for you:
+
+👉 **[Launch CineScope on Streamlit](https://cinescopee.streamlit.app/)**
+
+*(Heads-up: if the app has been sleeping for a bit, Streamlit might take a few seconds to wake it up—just give it a moment!)*
+
+---
+
 ## 🧠 How Does CineScope Work?
 
 CineScope uses two clever tricks to pick movies for you:
